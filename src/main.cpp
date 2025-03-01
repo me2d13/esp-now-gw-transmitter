@@ -81,7 +81,7 @@ void onDataReceived(unsigned char* mac, unsigned char *incomingData, u8 len) {
   {
     Serial.print(mac[i], HEX);
   }
-  Serial.print("\",\"data\":");
+  Serial.print("\",\"message\":");
   if (ENABLE_ENCRYPTION) {
     inPlaceDecrypt(espNowMessageBuffer, len);
   }
@@ -113,6 +113,7 @@ void setup() {
 }
 
 unsigned long lastBlickMilis = 0;
+unsigned long lastHeartbeatMessageMilis = 0;
 
 // function which converts char* with hex bytes to byte array
 void charToByteArray(const char* charArray, uint8_t* byteArray)
@@ -148,8 +149,8 @@ void handleSerialMessage() {
     esp_now_add_peer(peerAddress, ESP_NOW_ROLE_COMBO, 1, NULL, 0);
     Serial.println("New peer added");
   }
-  // take data element from json as nested object and send it to the peer via esp_now_send
-  JsonObject data = doc["data"];
+  // take message element from json as nested object and send it to the peer via esp_now_send
+  JsonObject data = doc["message"];
   // convert nested object to string
   String dataStr;
   serializeJson(data, dataStr);
@@ -171,6 +172,11 @@ void loop() {
   {
     lastBlickMilis = currentMillis;
     blickTimes(1);
+  }
+  // handle heartbeat
+  if (currentMillis - lastHeartbeatMessageMilis >= HEART_BEAT_S * 1000)
+  {
+    lastHeartbeatMessageMilis = currentMillis;
     Serial.println("Heartbeet from espnow transmitter");
   }
   if (readMessageFromSerial())
