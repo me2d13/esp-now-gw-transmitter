@@ -72,7 +72,7 @@ int messageToByteArray(const char* charArray, byte* byteArray, bool encrypt, int
     if (encrypt) {
         int encryptedLen = aes_encrypt(charArray, byteArray, maxLength);
         if (encryptedLen == -1) {
-            Serial.print("Message too long - ");
+            Serial.print("[TRANS] Message too long - ");
             Serial.print(length);
             Serial.print(", max ");
             Serial.print(maxLength-16);
@@ -82,7 +82,7 @@ int messageToByteArray(const char* charArray, byte* byteArray, bool encrypt, int
         return encryptedLen;
     } else {
         if (length > maxLength) {
-            Serial.print("Message too long - ");
+            Serial.print("[TRANS] Message too long - ");
             Serial.print(length);
             Serial.print(", max ");
             Serial.print(maxLength);
@@ -98,7 +98,7 @@ int messageToByteArray(const char* charArray, byte* byteArray, bool encrypt, int
 void inPlaceDecryptAndLog(byte* message, int length) {
     char decryptedText[251];
     aes_decrypt(message, length, decryptedText);
-    //Serial.print("Decrypted message: ");
+    //Serial.print("[TRANS] Decrypted message: ");
     //Serial.println(decryptedText);
     length = strlen(decryptedText);
     logMessageToSerial((byte*)decryptedText, length, false);
