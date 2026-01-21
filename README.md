@@ -27,12 +27,35 @@ MQTT Broker ←→ [esp-now-gw-mqtt] ←(serial)→ [esp-now-gw-transmitter] ←
 - **Error Handling**: Validates all ESP-NOW API calls with detailed error reporting
 - **Non-blocking Operation**: LED blinking and all operations are non-blocking
 - **Buffer Management**: Proper buffer clearing to prevent data corruption
+- **Dual-Output Logging**: All messages sent to both UART2 (MQTT module) and USB (debugging)
+- **Custom MAC Address**: Persistent MAC address configuration via NVS
 
 ## Hardware Requirements
 
-- **ESP8266** (tested on NodeMCU v2)
-- Serial connection to the MQTT gateway component
-- Uses swapped serial pins: GPIO13 (RX) and GPIO15 (TX)
+- **ESP32** (ESP32-WROOM-32 or compatible)
+- Serial connection to the MQTT gateway component via **UART2**:
+  - **TX**: GPIO17
+  - **RX**: GPIO16
+  - **Baud**: 115200
+- **Optional**: USB connection (UART0) for debugging
+  - Both USB and UART2 can be connected simultaneously
+  - All log messages are sent to both outputs
+
+### Dual-Output Logging
+
+The transmitter features a dual-output logging system:
+
+- **UART2 (GPIO16/17)**: Primary communication with MQTT gateway module
+  - Receives commands from MQTT module
+  - Sends all log messages and data to MQTT module
+  - Used for production operation
+  
+- **USB Serial (UART0)**: Debugging output
+  - Receives a copy of all log messages
+  - Used for development and troubleshooting
+  - Can be connected simultaneously with UART2
+
+This allows you to keep USB connected for debugging while the MQTT module operates normally on UART2.
 
 ## Message Protocol
 
@@ -88,6 +111,29 @@ Remotely reboot the device:
 
 The device will immediately reboot after acknowledging the command.
 
+#### Get MAC Command
+Display the current MAC address:
+
+```json
+{"command": "get-mac"}
+```
+
+Response (log message):
+```
+[TRANS] Current MAC address: AA:BB:CC:DD:EE:FF
+```
+
+#### Set MAC Command
+Set a custom MAC address (persists across reboots):
+
+```json
+{"command": "set-mac", "value": "AABBCCDDEEFF"}
+```
+
+The MAC address must be exactly 12 hexadecimal characters (no colons or separators). The device will save the MAC address to NVS (Non-Volatile Storage) and automatically reboot to apply it. On subsequent boots, the custom MAC will be loaded and applied automatically.
+
+**Note**: This is useful when other ESP-NOW devices have hardcoded the gateway's MAC address.
+
 
 ## Configuration
 
@@ -130,7 +176,7 @@ pio run --target upload
 pio device monitor
 ```
 
-Default upload port is `COM13` (configure in `platformio.ini`).
+Default upload port is `COM6` (configure in `platformio.ini`).
 
 ## LED Indicators
 
@@ -159,13 +205,34 @@ If ESP-NOW fails to initialize:
 
 ## Serial Communication
 
+### UART2 (MQTT Module Connection)
 - **Baud rate**: 115200
-- **Pins**: GPIO13 (RX), GPIO15 (TX) - swapped from default
+- **TX Pin**: GPIO17
+- **RX Pin**: GPIO16
 - **Format**: JSON messages terminated with newline (`\n`)
+- **Purpose**: Primary communication with MQTT gateway module
+
+### USB Serial (Debugging)
+- **Baud rate**: 115200
+- **Pins**: GPIO1 (TX), GPIO3 (RX) - default UART0
+- **Purpose**: Debugging and development
+- **Note**: Receives a copy of all messages sent to UART2
+
+### Wiring to MQTT Module
+
+```
+ESP32 Transmitter        MQTT Gateway Module
+-----------------        -------------------
+GPIO17 (TX)      ------>  RX
+GPIO16 (RX)      <------  TX
+GND              ------>  GND
+```
+
+**Important**: Cross the TX/RX lines - TX on ESP32 connects to RX on MQTT module and vice versa.
 
 ## Dependencies
 
-- **Arduino framework** for ESP8266
+- **Arduino framework** for ESP32
 - **ArduinoJson** (v7.3.0+) - JSON parsing and serialization
 - **tiny-AES-c** - AES encryption for ESP-NOW messages
 
@@ -196,13 +263,23 @@ If ESP-NOW fails to initialize:
 {"command":"reset"}
 ```
 
+### Get MAC Address
+```json
+{"command":"get-mac"}
+```
+
+### Set Custom MAC Address
+```json
+{"command":"set-mac","value":"AABBCCDDEEFF"}
+```
+
 
 ## Troubleshooting
 
 ### Device keeps rebooting
 - Check serial output for initialization error codes
 - Verify WiFi mode is set correctly (STA mode required for ESP-NOW)
-- Ensure ESP-NOW is supported on your ESP8266 board
+- Ensure ESP-NOW is supported on your ESP32 board
 
 ### Messages not being sent
 - Verify JSON format is correct (use `"to"` and `"message"` fields)

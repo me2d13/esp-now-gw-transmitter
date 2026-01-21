@@ -1,8 +1,14 @@
 #include <Arduino.h>
 #include "config.h"
 #include "crypto.h"
+#include "logger.h"
 #include "serial_handler.h"
 #include "espnow_handler.h"
+
+// Define LED_BUILTIN for ESP32 (not defined by default)
+#ifndef LED_BUILTIN
+#define LED_BUILTIN 2
+#endif
 
 // LED control variables
 byte ledPin = LED_BUILTIN;
@@ -48,6 +54,10 @@ void startBlink(int times) {
 }
 
 void setup() {
+  // IMPORTANT: Load custom MAC address FIRST, before any WiFi initialization
+  // This must be done before WiFi.mode() is called anywhere
+  loadCustomMacAddress();
+  
   // Initialize LED
   pinMode(ledPin, OUTPUT);
   digitalWrite(ledPin, HIGH);
@@ -68,11 +78,13 @@ void setup() {
 void loop() {
   unsigned long currentMillis = millis();
   
+  
   // Software watchdog - check if loop is running
   if (currentMillis - lastLoopTime > WATCHDOG_TIMEOUT_S * 1000UL) {
-    Serial.println("[TRANS] ERROR: Watchdog timeout - system appears hung");
-    Serial.println("[TRANS] Rebooting...");
+    logPrintln("[TRANS] ERROR: Watchdog timeout - system appears hung");
+    logPrintln("[TRANS] Rebooting...");
     Serial.flush();
+    getUART2().flush();
     delay(100);
     ESP.restart();
   }
@@ -90,12 +102,12 @@ void loop() {
   // Send heartbeat message
   if (currentMillis - lastHeartbeatMillis >= HEART_BEAT_S * 1000UL) {
     lastHeartbeatMillis = currentMillis;
-    Serial.print("[TRANS] Heartbeat from ");
-    Serial.print(WHO_AM_I);
-    Serial.print(" - Uptime: ");
-    Serial.print(currentMillis / 1000);
-    Serial.print("s, Peers: ");
-    Serial.println(getEspNowPeerCount());
+    logPrint("[TRANS] Heartbeat from ");
+    logPrint(WHO_AM_I);
+    logPrint(" - Uptime: ");
+    logPrint(String(currentMillis / 1000));
+    logPrint("s, Peers: ");
+    logPrintln(String(getEspNowPeerCount()));
   }
   
   // Handle incoming serial messages
