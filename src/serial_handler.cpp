@@ -2,6 +2,7 @@
 #include "espnow_handler.h"
 #include "config.h"
 #include "logger.h"
+#include "wifi_web_handler.h"
 #include <WiFi.h>
 
 #define SERIAL_BUFFER_SIZE 500
@@ -86,7 +87,7 @@ static void handleCommandMessage(const char* command) {
   }
   else if (strcmp(command, "set-mac") == 0) {
     // Check if value field exists
-    if (!doc.containsKey("value")) {
+    if (doc["value"].isNull()) {
       logPrintln("[TRANS] ERROR: 'set-mac' command requires 'value' field");
       return;
     }
@@ -132,7 +133,7 @@ static void handleCommandMessage(const char* command) {
 
 void handleSerialMessage() {
   // Check if this is a command message (ping, reset, etc.)
-  if (doc.containsKey("command")) {
+  if (!doc["command"].isNull()) {
     const char* command = doc["command"];
     if (command != nullptr) {
       handleCommandMessage(command);
@@ -141,12 +142,12 @@ void handleSerialMessage() {
   }
   
   // Validate required JSON fields for ESP-NOW messages
-  if (!doc.containsKey("to")) {
+  if (doc["to"].isNull()) {
     logPrintln("[TRANS] ERROR: Missing 'to' field in JSON");
     return;
   }
   
-  if (!doc.containsKey("message")) {
+  if (doc["message"].isNull()) {
     logPrintln("[TRANS] ERROR: Missing 'message' field in JSON");
     return;
   }
@@ -161,6 +162,14 @@ void handleSerialMessage() {
   JsonObject messageObj = doc["message"];
   if (messageObj.isNull()) {
     logPrintln("[TRANS] ERROR: 'message' field is not a valid object");
+    return;
+  }
+  
+  // Check if we are in Wi-Fi Mode
+  if (getCurrentState() == STATE_WIFI) {
+    String msgStr;
+    serializeJson(messageObj, msgStr);
+    logPrintf("[DRY RUN] Would send to %s: %s\n", toField, msgStr.c_str());
     return;
   }
   

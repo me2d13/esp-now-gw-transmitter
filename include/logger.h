@@ -30,4 +30,10 @@ void logPrintf(const char* format, ...);
 // Get direct access to UART2 for reading incoming messages
 HardwareSerial& getUART2();
 
+// Get the logged messages in JSON format for the Web API
+String getLogsJson();
+
+// Clear the log buffer
+void clearLogBuffer();
+
 #endif // LOGGER_H

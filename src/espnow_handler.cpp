@@ -2,6 +2,7 @@
 #include "config.h"
 #include "crypto.h"
 #include "logger.h"
+#include "led_handler.h"
 #include <WiFi.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
@@ -165,6 +166,8 @@ void sendEspNowMessage(const char* macAddress, JsonObject messageObj) {
     if (sendResult != ESP_OK) {
       logPrint("[TRANS] ERROR: esp_now_send failed with code: ");
       logPrintln(sendResult);
+    } else {
+      triggerLedFlash();
     }
   }
 }
@@ -185,6 +188,7 @@ void onEspNowDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 
 // Callback when data is received (ESP32 Arduino 2.x/3.x signature)
 void onEspNowDataReceived(const uint8_t *mac, const uint8_t *data, int len) {
+  triggerLedFlash();
   memcpy(espNowMessageBuffer, data, len);
   logPrint("[TRANS] From esp-now received ");
   logPrint(len);
@@ -198,6 +202,13 @@ void onEspNowDataReceived(const uint8_t *mac, const uint8_t *data, int len) {
   logPrint("\",\"message\":");
   if (ENABLE_ENCRYPTION) {
     inPlaceDecrypt(espNowMessageBuffer, len);
+  } else {
+    // Ensure null termination if encryption is disabled
+    if (len < (int)sizeof(espNowMessageBuffer)) {
+      espNowMessageBuffer[len] = '\0';
+    } else {
+      espNowMessageBuffer[sizeof(espNowMessageBuffer) - 1] = '\0';
+    }
   }
   logPrint((char *) espNowMessageBuffer);
   logPrintln("}");

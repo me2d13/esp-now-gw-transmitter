@@ -21,6 +21,17 @@
 // The device will reboot if loop() doesn't execute within this time
 #define WATCHDOG_TIMEOUT_S 30
 
+// Wi-Fi Configuration for setup / debugging phase
+#define WIFI_SSID "your-ssid"
+#define WIFI_PASSWORD "your-password"
+#define WIFI_TIME_MS (3 * 60 * 1000) // Default 3 minutes
+
+#define SW_VERSION "0.2"
+
+// LED Configuration
+#define LED_PIN 2             // GPIO pin for the built-in LED (default is 2)
+#define LED_ACTIVE_LEVEL HIGH // Set to LOW if your onboard LED is active-low
+
 #endif // CONFIG_H
 
 

@@ -4,53 +4,18 @@
 #include "logger.h"
 #include "serial_handler.h"
 #include "espnow_handler.h"
-
-// Define LED_BUILTIN for ESP32 (not defined by default)
-#ifndef LED_BUILTIN
-#define LED_BUILTIN 2
-#endif
-
-// LED control variables
-byte ledPin = LED_BUILTIN;
-bool ledState = HIGH;
-unsigned long ledToggleTime = 0;
-int ledBlinkCount = 0;
-int ledBlinkTarget = 0;
+#include "wifi_web_handler.h"
+#include "led_handler.h"
 
 // Software watchdog
 unsigned long lastLoopTime = 0;
 
 // Timing variables
-unsigned long lastBlinkMillis = 0;
 unsigned long lastHeartbeatMillis = 0;
 
-// Non-blocking LED blink - call this from loop()
-void updateLedBlink() {
-  if (ledBlinkTarget > 0) {
-    unsigned long currentMillis = millis();
-    if (currentMillis - ledToggleTime >= 100) {
-      ledToggleTime = currentMillis;
-      ledState = !ledState;
-      digitalWrite(ledPin, ledState);
-      
-      if (!ledState) { // Count on LOW transitions
-        ledBlinkCount++;
-        if (ledBlinkCount >= ledBlinkTarget) {
-          ledBlinkTarget = 0;
-          ledBlinkCount = 0;
-          ledState = HIGH;
-          digitalWrite(ledPin, HIGH);
-        }
-      }
-    }
-  }
-}
-
-// Start a non-blocking blink sequence
-void startBlink(int times) {
-  ledBlinkTarget = times;
-  ledBlinkCount = 0;
-  ledToggleTime = millis();
+// Feed the software watchdog from other files
+void feedWatchdog() {
+  lastLoopTime = millis();
 }
 
 void setup() {
@@ -58,9 +23,8 @@ void setup() {
   // This must be done before WiFi.mode() is called anywhere
   loadCustomMacAddress();
   
-  // Initialize LED
-  pinMode(ledPin, OUTPUT);
-  digitalWrite(ledPin, HIGH);
+  // Initialize LED handler
+  setupLed();
   
   // Initialize crypto
   setupCrypto();
@@ -68,8 +32,8 @@ void setup() {
   // Initialize serial communication
   setupSerial();
   
-  // Initialize ESP-NOW (with auto-reboot on failure)
-  setupEspNow();
+  // Initialize Wi-Fi & Web Server Mode (switches to ESP-NOW after timeout/command)
+  setupWifiWeb();
   
   // Initialize watchdog
   lastLoopTime = millis();
@@ -89,15 +53,12 @@ void loop() {
     ESP.restart();
   }
   lastLoopTime = currentMillis;
+
+  // Handle Wi-Fi mode state machine (OTA and timeout checks)
+  handleWifiWeb();
   
-  // Update non-blocking LED blink
-  updateLedBlink();
-  
-  // Blink LED 1 time every 10 seconds
-  if (currentMillis - lastBlinkMillis >= 10000) {
-    lastBlinkMillis = currentMillis;
-    startBlink(1);
-  }
+  // Update non-blocking LED pattern generator
+  updateLed();
   
   // Send heartbeat message
   if (currentMillis - lastHeartbeatMillis >= HEART_BEAT_S * 1000UL) {

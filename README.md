@@ -1,6 +1,6 @@
 # ESP-NOW Gateway Transmitter
 
-This is the ESP-NOW communication component of the MQTT ↔ ESP-NOW gateway system. It runs on an ESP8266 and handles bidirectional message translation between serial communication and ESP-NOW protocol.
+This is the ESP-NOW communication component of the MQTT ↔ ESP-NOW gateway system. It runs on an ESP32 and handles bidirectional message translation between serial communication and ESP-NOW protocol.
 
 ## Overview
 
@@ -16,19 +16,28 @@ MQTT Broker ←→ [esp-now-gw-mqtt] ←(serial)→ [esp-now-gw-transmitter] ←
 ## Features
 
 ### Core Functionality
-- **Bidirectional Communication**: Translates between serial JSON messages and ESP-NOW protocol
-- **Message Encryption**: Optional AES-CTR encryption for secure ESP-NOW communication
-- **Dynamic Peer Management**: Automatically adds new ESP-NOW peers as needed (up to 20 peers)
-- **Message Validation**: Comprehensive JSON validation before processing
+- **Bidirectional Communication**: Translates between serial JSON messages and ESP-NOW protocol.
+- **Message Encryption**: Optional AES-CTR encryption for secure ESP-NOW communication.
+- **Dynamic Peer Management**: Automatically adds new ESP-NOW peers as needed (up to 20 peers).
+- **Message Validation**: Comprehensive JSON validation before processing.
+
+### Wi-Fi Startup & Maintenance Mode
+- **Wi-Fi Boot Phase**: Connects to your local Wi-Fi network at boot (using credentials in `config.h`) for a setup period (default: 3 minutes) before starting ESP-NOW.
+- **Web UI Dashboard**: Serves a self-contained, responsive, dark-mode status page at the device's IP. Shows uptime, free memory, MAC address, active peers, and a dynamic countdown timer.
+- **Stay in Wi-Fi / Dry Run Mode**: A toggle in the Web UI pauses the countdown timer to stay in Wi-Fi mode indefinitely. While in Wi-Fi mode, ESP-NOW acts in "Dry Run" mode where serial commands are logged as simulations but not transmitted, allowing easy debugging.
+- **Circular Memory Logger**: Captures and buffers the last 100 log lines with relative boot-time timestamps (`HH:MM:SS.mmm`), accessible directly in the Web UI.
+- **Dual OTA Uploads**: 
+  - **Web OTA**: Upload `firmware.bin` directly through any browser with a visual progress bar.
+  - **ArduinoOTA**: Upload wirelessly from VSCode/PlatformIO during the Wi-Fi boot phase.
 
 ### Robustness Features
-- **Auto-Recovery**: Automatically reboots if ESP-NOW initialization fails
-- **Software Watchdog**: Monitors loop execution and reboots if system hangs
-- **Error Handling**: Validates all ESP-NOW API calls with detailed error reporting
-- **Non-blocking Operation**: LED blinking and all operations are non-blocking
-- **Buffer Management**: Proper buffer clearing to prevent data corruption
-- **Dual-Output Logging**: All messages sent to both UART2 (MQTT module) and USB (debugging)
-- **Custom MAC Address**: Persistent MAC address configuration via NVS
+- **Auto-Recovery**: Automatically reboots if ESP-NOW initialization fails.
+- **Software Watchdog**: Monitors loop execution and reboots if the system hangs. The watchdog is automatically fed during OTA flashes to prevent accidental reboots.
+- **Error Handling**: Validates all ESP-NOW API calls with detailed error reporting.
+- **Non-blocking Operation**: LED status blinking and all operations are non-blocking.
+- **Buffer Management**: Proper buffer clearing to prevent data corruption.
+- **Dual-Output Logging**: All messages sent to both UART2 (MQTT module) and USB (debugging).
+- **Custom MAC Address**: Persistent MAC address configuration via NVS.
 
 ## Hardware Requirements
 
@@ -38,8 +47,8 @@ MQTT Broker ←→ [esp-now-gw-mqtt] ←(serial)→ [esp-now-gw-transmitter] ←
   - **RX**: GPIO16
   - **Baud**: 115200
 - **Optional**: USB connection (UART0) for debugging
-  - Both USB and UART2 can be connected simultaneously
-  - All log messages are sent to both outputs
+  - Both USB and UART2 can be connected simultaneously.
+  - All log messages are sent to both outputs.
 
 ### Dual-Output Logging
 
@@ -134,10 +143,16 @@ The MAC address must be exactly 12 hexadecimal characters (no colons or separato
 
 **Note**: This is useful when other ESP-NOW devices have hardcoded the gateway's MAC address.
 
-
 ## Configuration
 
 Edit `include/config.h` to customize:
+
+### Wi-Fi Settings
+```cpp
+#define WIFI_SSID "your-ssid"          // Your Wi-Fi network SSID
+#define WIFI_PASSWORD "your-password"  // Your Wi-Fi network password
+#define WIFI_TIME_MS (3 * 60 * 1000)   // Default setup phase time (3 minutes)
+```
 
 ### Encryption
 ```cpp
@@ -153,6 +168,7 @@ Edit `include/config.h` to customize:
 ### Device Identity
 ```cpp
 #define WHO_AM_I "ESP32-ESPNOW-GW-TRANS"  // Device identifier
+#define SW_VERSION "0.2"                  // Software version
 ```
 
 ### Robustness Settings
@@ -166,11 +182,14 @@ Edit `include/config.h` to customize:
 This project uses PlatformIO:
 
 ```bash
-# Build
+# Build firmware
 pio run
 
-# Upload
+# Upload via USB/COM port
 pio run --target upload
+
+# Upload wirelessly via OTA (requires Wi-Fi mode)
+pio run -t upload -e ota
 
 # Monitor serial output
 pio device monitor
@@ -180,11 +199,16 @@ Default upload port is `COM6` (configure in `platformio.ini`).
 
 ## LED Indicators
 
-The built-in LED provides status information:
+The built-in LED provides visual feedback on device status and operation:
 
-- **Single blink every 10 seconds**: Normal operation
-- **Rapid blinking**: Initialization error, waiting to reboot
-- **Solid on**: Idle state
+> [!NOTE]
+> Some ESP32 development boards (such as the official Espressif ESP32-DevKitC V4) do not have a user-programmable LED onboard (only a hardwired red power LED). If your board does not have an onboard user LED, you can connect an external LED with a suitable resistor to the configured GPIO pin (GPIO 2 by default) to see these status patterns.
+
+- **Double blink every 2 seconds**: Device is in Wi-Fi Maintenance / Setup mode.
+- **Single blink every 2 seconds**: Device is in normal ESP-NOW mode.
+- **Very rapid blinking (50ms toggle)**: OTA firmware update in progress.
+- **Rapid blinking (100ms toggle)**: Initialization error, waiting to reboot.
+- **Momentary flash (60ms)**: Activity flash indicating an ESP-NOW message has been successfully sent or received.
 
 ## Error Handling
 
@@ -235,62 +259,22 @@ GND              ------>  GND
 - **Arduino framework** for ESP32
 - **ArduinoJson** (v7.3.0+) - JSON parsing and serialization
 - **tiny-AES-c** - AES encryption for ESP-NOW messages
+- **ESPAsyncWebServer** (v3.6.0+) - Asynchronous web server for UI & Web OTA
 
-## Example Messages
+## Changelog
 
-### Relay Control
-```json
-{"to":"ECFABC2FE867","message":{"channel":1,"push":500}}
-```
+### v0.2
+- Added Wi-Fi Boot / Maintenance mode at startup.
+- Implemented responsive, self-contained HTML/CSS/JS status Dashboard (`PROGMEM`-embedded).
+- Added browser-based Web OTA upload with real-time progress bar.
+- Added standard `ArduinoOTA` support for PlatformIO uploads.
+- Added a "Stay in Wi-Fi Mode" UI toggle to pause the transition timer and run in "Dry Run" mode indefinitely for debugging.
+- Added circular local memory logger (last 100 entries) with relative boot timestamps (`HH:MM:SS.mmm`).
+- Fed software watchdog during OTA flashing to prevent reboots.
+- Fixed JSON deprecation warnings.
 
-### State Change
-```json
-{"to":"ECFABC2FE867","message":{"index":1,"state":1}}
-```
-
-### Blink Command
-```json
-{"to":"ECFABC2FE867","message":{"blinkTimes":8}}
-```
-
-### Ping Device
-```json
-{"command":"ping"}
-```
-
-### Reset Device
-```json
-{"command":"reset"}
-```
-
-### Get MAC Address
-```json
-{"command":"get-mac"}
-```
-
-### Set Custom MAC Address
-```json
-{"command":"set-mac","value":"AABBCCDDEEFF"}
-```
-
-
-## Troubleshooting
-
-### Device keeps rebooting
-- Check serial output for initialization error codes
-- Verify WiFi mode is set correctly (STA mode required for ESP-NOW)
-- Ensure ESP-NOW is supported on your ESP32 board
-
-### Messages not being sent
-- Verify JSON format is correct (use `"to"` and `"message"` fields)
-- Check that MAC address is exactly 12 hex characters
-- Monitor serial output for error messages
-- Verify encryption settings match on both ends
-
-### No response from ESP-NOW devices
-- Ensure encryption keys match on all devices
-- Verify target device MAC address is correct
-- Check that target device is in range and powered on
+### v0.1
+- Initial release of ESP-NOW bidirectional gateway transmitter with encryption and dynamic peer management.
 
 ## License
 
