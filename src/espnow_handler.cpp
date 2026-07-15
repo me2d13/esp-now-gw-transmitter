@@ -2,6 +2,7 @@
 #include "config.h"
 #include "crypto.h"
 #include "logger.h"
+#include <ArduinoJson.h>
 #include "led_handler.h"
 #include <WiFi.h>
 #include <esp_now.h>
@@ -178,11 +179,12 @@ uint8_t getEspNowPeerCount() {
 
 // Callback when data is sent (ESP32 signature)
 void onEspNowDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-  logPrint("[TRANS] Last espnow send status: ");
+  char macStr[13];
+  sprintf(macStr, "%02X%02X%02X%02X%02X%02X", mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
   if (status == ESP_NOW_SEND_SUCCESS) {
-    logPrintln("Delivery success");
+    logPrintf("[PEER:%s] Last espnow send status: Delivery success\n", macStr);
   } else {
-    logPrintln("Delivery fail");
+    logPrintf("[PEER:%s] ERROR: Last espnow send status: Delivery fail\n", macStr);
   }
 }
 
@@ -190,16 +192,12 @@ void onEspNowDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void onEspNowDataReceived(const uint8_t *mac, const uint8_t *data, int len) {
   triggerLedFlash();
   memcpy(espNowMessageBuffer, data, len);
-  logPrint("[TRANS] From esp-now received ");
-  logPrint(len);
-  logPrint(" bytes: ");
-  logMessageToSerial((byte*)data, len, ENABLE_ENCRYPTION);
-  logPrint("DATA:{\"mac\":\"");
-  for (int i = 0; i < 6; i++) {
-    if (mac[i] < 16) logPrint("0");
-    logPrint(mac[i], HEX);
-  }
-  logPrint("\",\"message\":");
+  
+  char macStr[13];
+  sprintf(macStr, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+  
+  logPrintf("[PEER:%s] From esp-now received %d bytes\n", macStr, len);
+  
   if (ENABLE_ENCRYPTION) {
     inPlaceDecrypt(espNowMessageBuffer, len);
   } else {
@@ -210,8 +208,13 @@ void onEspNowDataReceived(const uint8_t *mac, const uint8_t *data, int len) {
       espNowMessageBuffer[sizeof(espNowMessageBuffer) - 1] = '\0';
     }
   }
-  logPrint((char *) espNowMessageBuffer);
-  logPrintln("}");
+  
+  // Construct data message to gateway
+  JsonDocument outDoc;
+  outDoc["type"] = "data";
+  outDoc["mac"] = macStr;
+  outDoc["message"] = serialized((char*)espNowMessageBuffer);
+  sendGatewayMessage(outDoc);
 }
 
 // Set a custom MAC address and save to NVS

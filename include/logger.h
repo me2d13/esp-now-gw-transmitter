@@ -2,9 +2,13 @@
 #define LOGGER_H
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
 
 // Initialize logging system (both USB Serial and UART2)
 void setupLogger();
+
+// Send structured JSON message over serial link (UART2) to gateway
+void sendGatewayMessage(const JsonDocument& doc);
 
 // Log a message to both USB and UART2
 void logPrint(const char* message);

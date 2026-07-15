@@ -37,8 +37,9 @@ bool readSerialMessage() {
     size_t bytesRead = uart.readBytesUntil('\n', serialMessageBuffer, SERIAL_BUFFER_SIZE - 1);
     serialMessageBuffer[bytesRead] = '\0'; // Ensure null termination
     
-    logPrint("[TRANS] Message received from GW on serial: ");
-    logPrintln(serialMessageBuffer);
+    // Print to USB serial only (to prevent infinite loopback logging)
+    Serial.print("[TRANS] Message received from GW on serial: ");
+    Serial.println(serialMessageBuffer);
     
     // Clear previous JSON document
     doc.clear();
@@ -46,10 +47,16 @@ bool readSerialMessage() {
     // Parse the message as JSON
     DeserializationError error = deserializeJson(doc, serialMessageBuffer);
     if (error) {
-      logPrint(F("[TRANS] deserializeJson() failed: "));
-      logPrintln(error.c_str());
+      Serial.print(F("[TRANS] deserializeJson() failed: "));
+      Serial.println(error.c_str());
       return false;
     }
+    
+    // Silently ignore echoed messages of our own outgoing transmissions
+    if (!doc["type"].isNull()) {
+      return false;
+    }
+    
     return true;
   }
   return false;
@@ -60,8 +67,10 @@ JsonDocument& getSerialDoc() {
 }
 
 // Handle command messages (ping, reset, set-mac, get-mac)
+// Handle command messages (ping, reset, set-mac, get-mac)
 static void handleCommandMessage(const char* command) {
   if (strcmp(command, "ping") == 0) {
+    // Local debug print
     logPrint("[TRANS] PING response from ");
     logPrint(WHO_AM_I);
     logPrint(" - MAC: ");
@@ -73,9 +82,30 @@ static void handleCommandMessage(const char* command) {
     logPrint(", Free Heap: ");
     logPrint(String(ESP.getFreeHeap()));
     logPrintln(" bytes");
+
+    // Gateway response
+    JsonDocument resp;
+    resp["type"] = "response";
+    resp["command"] = "ping";
+    resp["status"] = "success";
+    resp["device"] = WHO_AM_I;
+    resp["mac"] = WiFi.macAddress();
+    resp["uptime"] = millis() / 1000;
+    resp["peers"] = getEspNowPeerCount();
+    resp["free_heap"] = ESP.getFreeHeap();
+    sendGatewayMessage(resp);
   } 
   else if (strcmp(command, "reset") == 0) {
     logPrintln("[TRANS] RESET command received - rebooting device...");
+    
+    // Gateway response
+    JsonDocument resp;
+    resp["type"] = "response";
+    resp["command"] = "reset";
+    resp["status"] = "success";
+    resp["message"] = "Rebooting device...";
+    sendGatewayMessage(resp);
+
     Serial.flush();
     getUART2().flush();
     delay(100);
@@ -84,17 +114,39 @@ static void handleCommandMessage(const char* command) {
   else if (strcmp(command, "get-mac") == 0) {
     logPrint("[TRANS] Current MAC address: ");
     logPrintln(WiFi.macAddress());
+
+    // Gateway response
+    JsonDocument resp;
+    resp["type"] = "response";
+    resp["command"] = "get-mac";
+    resp["status"] = "success";
+    resp["mac"] = WiFi.macAddress();
+    sendGatewayMessage(resp);
   }
   else if (strcmp(command, "set-mac") == 0) {
     // Check if value field exists
     if (doc["value"].isNull()) {
       logPrintln("[TRANS] ERROR: 'set-mac' command requires 'value' field");
+      
+      JsonDocument resp;
+      resp["type"] = "response";
+      resp["command"] = "set-mac";
+      resp["status"] = "error";
+      resp["message"] = "Missing 'value' field";
+      sendGatewayMessage(resp);
       return;
     }
     
     const char* newMac = doc["value"];
     if (newMac == nullptr || strlen(newMac) != 12) {
       logPrintln("[TRANS] ERROR: MAC address must be 12 hex characters (e.g., 'AABBCCDDEEFF')");
+      
+      JsonDocument resp;
+      resp["type"] = "response";
+      resp["command"] = "set-mac";
+      resp["status"] = "error";
+      resp["message"] = "MAC address must be 12 hex characters (e.g., 'AABBCCDDEEFF')";
+      sendGatewayMessage(resp);
       return;
     }
     
@@ -117,17 +169,41 @@ static void handleCommandMessage(const char* command) {
       }
       logPrintln("");
       logPrintln("[TRANS] Rebooting to apply new MAC address...");
+
+      // Gateway response
+      JsonDocument resp;
+      resp["type"] = "response";
+      resp["command"] = "set-mac";
+      resp["status"] = "success";
+      resp["mac"] = newMac;
+      resp["message"] = "Rebooting to apply new MAC address";
+      sendGatewayMessage(resp);
+
       Serial.flush();
       getUART2().flush();
       delay(100);
       ESP.restart();
     } else {
       logPrintln("[TRANS] ERROR: Failed to set MAC address");
+
+      JsonDocument resp;
+      resp["type"] = "response";
+      resp["command"] = "set-mac";
+      resp["status"] = "error";
+      resp["message"] = "Failed to write MAC address to NVS";
+      sendGatewayMessage(resp);
     }
   }
   else {
     logPrint("[TRANS] ERROR: Unknown command: ");
     logPrintln(command);
+
+    JsonDocument resp;
+    resp["type"] = "response";
+    resp["command"] = "unknown";
+    resp["status"] = "error";
+    resp["message"] = "Unknown command: " + String(command);
+    sendGatewayMessage(resp);
   }
 }
 
