@@ -49,12 +49,30 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
         .container { max-width: 900px; margin: 0 auto; }
         header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); margin-bottom: 2rem; }
         h1 { font-size: 1.75rem; font-weight: 700; background: linear-gradient(to right, #818cf8, #c084fc); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .github-link { color: var(--text-secondary); text-decoration: none; display: flex; align-items: center; gap: 0.4rem; font-size: 0.8rem; transition: color 0.2s; }
+        .github-link:hover { color: var(--text-primary); }
+        .github-link svg { width: 18px; height: 18px; fill: currentColor; flex-shrink: 0; }
+        .api-link { font-size: 0.78rem; color: #818cf8; text-decoration: none; display: inline-flex; align-items: center; gap: 0.3rem; margin-top: 0.4rem; opacity: 0.85; transition: opacity 0.2s; }
+        .api-link:hover { opacity: 1; text-decoration: underline; }
         .badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
         .badge-wifi { background: rgba(99, 102, 241, 0.2); color: #818cf8; }
         .badge-espnow { background: rgba(16, 185, 129, 0.2); color: #10b981; }
         .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
         @media(max-width: 768px) { .grid { grid-template-columns: 1fr; } }
         .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 1rem; padding: 1.5rem; backdrop-filter: blur(12px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .card-full { grid-column: 1 / -1; }
+        /* OTA collapsible */
+        details.ota-section { margin-bottom: 2rem; }
+        details.ota-section summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); font-size: 0.85rem; padding: 0.5rem 0; user-select: none; }
+        details.ota-section summary::before { content: '▶'; font-size: 0.65rem; transition: transform 0.2s; }
+        details[open].ota-section summary::before { transform: rotate(90deg); }
+        details.ota-section summary:hover { color: var(--text-primary); }
+        details.ota-section .ota-inner { margin-top: 0.75rem; }
+        /* JSON send textarea */
+        .json-textarea { width: 100%; background: rgba(15,23,42,0.6); border: 1px solid var(--border-color); border-radius: 0.5rem; padding: 0.75rem; font-family: 'Fira Code', monospace; font-size: 0.8rem; color: var(--text-primary); resize: vertical; min-height: 120px; outline: none; transition: border-color 0.2s; }
+        .json-textarea:focus { border-color: var(--primary); }
+        .json-send-row { display: flex; gap: 0.75rem; align-items: center; margin-top: 0.75rem; flex-wrap: wrap; }
+        .send-status { font-size: 0.8rem; font-weight: 600; }
         .card-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 1.25rem; color: #e2e8f0; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.5rem; }
         .stat-row { display: flex; justify-content: space-between; padding: 0.5rem 0; font-size: 0.9rem; border-bottom: 1px solid rgba(255,255,255,0.02); }
         .stat-row:last-child { border-bottom: none; }
@@ -90,7 +108,13 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
                 <h1 id="header-title">ESP-NOW GW Transmitter</h1>
                 <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem;">Boot / Maintenance Mode</p>
             </div>
-            <div id="status-badge" class="badge badge-wifi">Wi-Fi Mode</div>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <div id="status-badge" class="badge badge-wifi">Wi-Fi Mode</div>
+                <a class="github-link" href="https://github.com/me2d13/esp-now-gw-transmitter" target="_blank" rel="noopener" title="GitHub Repository">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+                    GitHub
+                </a>
+            </div>
         </header>
 
         <main>
@@ -145,31 +169,44 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
                     </div>
                 </div>
             </div>
+            <!-- Full-width Logs -->
+            <div class="card card-full" style="display: flex; flex-direction: column; margin-bottom: 2rem;">
+                <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span>Transmitter Logs</span>
+                    <button class="btn btn-secondary" id="btn-clear-logs" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Clear</button>
+                </div>
+                <div class="log-container" id="log-container" style="height: 300px;">
+                    <div style="color: var(--text-secondary); text-align: center; padding-top: 5rem;">Loading logs...</div>
+                </div>
+            </div>
 
-            <div class="grid">
-                <div class="card" style="grid-column: span 1;">
-                    <div class="card-title">OTA Firmware Upload</div>
+            <!-- Send JSON to Gateway (visible in Wi-Fi mode for debugging) -->
+            <div class="card card-full" style="margin-bottom: 2rem;">
+                <div class="card-title">Send JSON to Gateway</div>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem;">Paste a raw JSON message to send directly to the MQTT gateway via serial (for debugging).</p>
+                <a class="api-link" href="https://github.com/me2d13/esp-now-gw-transmitter/blob/master/API.md" target="_blank" rel="noopener">&#128196; API Reference (API.md)</a>
+                <textarea class="json-textarea" id="json-payload" placeholder='{"to": "AABBCCDDEEFF", "message": {"key": "value"}}'></textarea>
+                <div class="json-send-row">
+                    <button class="btn" id="btn-send-json">&#9658; Send</button>
+                    <span class="send-status" id="send-status"></span>
+                </div>
+            </div>
+
+            <!-- OTA Firmware Upload (collapsible) -->
+            <details class="ota-section">
+                <summary>OTA Firmware Upload</summary>
+                <div class="ota-inner card">
                     <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1.25rem;">Select compiled <code>firmware.bin</code> to update transmitter.</p>
                     <div style="display: flex; flex-direction: column; gap: 0.75rem;">
                         <input type="file" id="ota-file" accept=".bin" style="font-size: 0.85rem; background: rgba(15,23,42,0.3); border: 1px solid var(--border-color); padding: 0.5rem; border-radius: 0.25rem; width: 100%; color: var(--text-secondary);">
-                        <button class="btn" id="btn-upload" style="justify-content: center;" disabled>Upload & Flash</button>
+                        <button class="btn" id="btn-upload" style="justify-content: center;" disabled>Upload &amp; Flash</button>
                         <div class="progress-container" id="prog-container">
                             <div class="progress-bar" id="prog-bar">0%</div>
                         </div>
                         <div id="upload-status" style="font-size: 0.85rem; font-weight: 600; text-align: center; margin-top: 0.25rem;"></div>
                     </div>
                 </div>
-
-                <div class="card" style="grid-column: span 1; display: flex; flex-direction: column;">
-                    <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
-                        <span>Transmitter Logs</span>
-                        <button class="btn btn-secondary" id="btn-clear-logs" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Clear</button>
-                    </div>
-                    <div class="log-container" id="log-container">
-                        <div style="color: var(--text-secondary); text-align: center; padding-top: 5rem;">Loading logs...</div>
-                    </div>
-                </div>
-            </div>
+            </details>
         </main>
     </div>
 
@@ -360,6 +397,48 @@ static const char INDEX_HTML[] PROGMEM = R"rawliteral(
             }
         });
 
+        // Send JSON to Gateway
+        const btnSendJson = document.getElementById('btn-send-json');
+        const jsonPayload = document.getElementById('json-payload');
+        const sendStatus = document.getElementById('send-status');
+
+        btnSendJson.addEventListener('click', async () => {
+            const raw = jsonPayload.value.trim();
+            if (!raw) return;
+            // Validate JSON first
+            let parsed;
+            try {
+                parsed = JSON.parse(raw);
+            } catch (e) {
+                sendStatus.textContent = '\u2717 Invalid JSON: ' + e.message;
+                sendStatus.style.color = 'var(--error)';
+                return;
+            }
+            btnSendJson.disabled = true;
+            sendStatus.textContent = 'Sending...';
+            sendStatus.style.color = 'var(--text-secondary)';
+            try {
+                const res = await fetch('/api/send-raw', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(parsed)
+                });
+                if (res.ok) {
+                    sendStatus.textContent = '\u2713 Sent!';
+                    sendStatus.style.color = 'var(--success)';
+                } else {
+                    const txt = await res.text();
+                    sendStatus.textContent = '\u2717 Error: ' + txt;
+                    sendStatus.style.color = 'var(--error)';
+                }
+            } catch (err) {
+                sendStatus.textContent = '\u2717 Network error';
+                sendStatus.style.color = 'var(--error)';
+            }
+            btnSendJson.disabled = false;
+            setTimeout(() => { sendStatus.textContent = ''; }, 4000);
+        });
+
         // Periodic updates
         fetchStatus();
         fetchLogs();
@@ -460,6 +539,24 @@ void setupWifiWeb() {
       transitionToEspNow();
     });
   });
+
+  // Raw JSON send endpoint – writes the POSTed JSON body directly to UART2
+  server.on("/api/send-raw", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL,
+    [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
+      // Validate it's parseable JSON
+      JsonDocument jsonDoc;
+      DeserializationError error = deserializeJson(jsonDoc, data, len);
+      if (error) {
+        request->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
+        return;
+      }
+      // Re-serialize (compact) and write to UART2
+      String out;
+      serializeJson(jsonDoc, out);
+      getUART2().println(out);
+      logPrintf("[TRANS] Web -> UART2 raw send: %s\n", out.c_str());
+      request->send(200, "application/json", "{\"status\":\"ok\"}");
+    });
 
   // Web OTA Handler
   server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request) {
