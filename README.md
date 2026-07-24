@@ -49,6 +49,7 @@ MQTT Broker ←→ [esp-now-gw-mqtt] ←(serial)→ [esp-now-gw-transmitter] ←
 - **Optional**: USB connection (UART0) for debugging
   - Both USB and UART2 can be connected simultaneously.
   - All log messages are sent to both outputs.
+- **Optional**: WS2812B LED strip (8 LEDs recommended) connected to **GPIO4** for visual status indicators.
 
 ### Dual-Output Logging
 
@@ -199,16 +200,54 @@ Default upload port is `COM6` (configure in `platformio.ini`).
 
 ## LED Indicators
 
-The built-in LED provides visual feedback on device status and operation:
+The firmware uses two indicator outputs: the **built-in GPIO LED** and an optional **WS2812B RGB strip**.
+
+### Built-in LED (GPIO 2)
 
 > [!NOTE]
-> Some ESP32 development boards (such as the official Espressif ESP32-DevKitC V4) do not have a user-programmable LED onboard (only a hardwired red power LED). If your board does not have an onboard user LED, you can connect an external LED with a suitable resistor to the configured GPIO pin (GPIO 2 by default) to see these status patterns.
+> Some ESP32 development boards (such as the official Espressif ESP32-DevKitC V4) do not have a user-programmable LED onboard (only a hardwired red power LED). If your board does not have an onboard user LED, you can connect an external LED with a suitable resistor to GPIO 2 to see these patterns.
 
-- **Double blink every 2 seconds**: Device is in Wi-Fi Maintenance / Setup mode.
-- **Single blink every 2 seconds**: Device is in normal ESP-NOW mode.
-- **Very rapid blinking (50ms toggle)**: OTA firmware update in progress.
-- **Rapid blinking (100ms toggle)**: Initialization error, waiting to reboot.
-- **Momentary flash (60ms)**: Activity flash indicating an ESP-NOW message has been successfully sent or received.
+| Pattern | Meaning |
+|---|---|
+| Double blink every 2 s | Wi-Fi / Maintenance mode |
+| Single blink every 2 s | Normal ESP-NOW mode |
+| Very rapid blink (50 ms) | OTA firmware update in progress |
+| Rapid blink (100 ms) | Initialization error – waiting to reboot |
+| Momentary 60 ms flash | ESP-NOW message sent or received |
+
+### WS2812B RGB Strip (GPIO 4)
+
+Connect the data line of an 8-LED WS2812B module to **GPIO 4** (3.3 V signal level is accepted by most WS2812B modules). Power the strip from the **5 V** rail; share GND with the ESP32.
+
+> [!NOTE]
+> On every boot the strip runs a short self-test: all LEDs cycle **Red → Green → Blue** (≈ 300 ms each). If you see this sweep, wiring and library are working correctly.
+
+#### LED 0 — Operating mode
+
+Flashes briefly (200 ms on, 3 s off) to show the current mode **and** to confirm the main loop is still executing.
+
+| Colour | Mode |
+|---|---|
+| 🔵 Blue | Wi-Fi / Maintenance mode |
+| 🟢 Green | Normal ESP-NOW mode |
+| 🟡 Yellow | OTA firmware update in progress |
+| 🔴 Red | Initialization error / error state |
+
+#### LED 1 — Heartbeat
+
+Flashes **🟠 orange for 1 second** each time a heartbeat message is sent to the gateway. The heartbeat interval is configured by `HEART_BEAT_S` in `config.h` (default: 60 s).
+
+#### LEDs 2–7 — Reserved
+
+Currently off; available for future use (e.g. per-peer activity, mode-switch confirmation).
+
+#### Configuration
+
+```cpp
+// config.h
+#define WS2812_DATA_PIN 4   // GPIO pin for the strip data line
+#define WS2812_NUM_LEDS 8   // Number of LEDs on the strip
+```
 
 ## Error Handling
 
@@ -260,6 +299,7 @@ GND              ------>  GND
 - **ArduinoJson** (v7.3.0+) - JSON parsing and serialization
 - **tiny-AES-c** - AES encryption for ESP-NOW messages
 - **ESPAsyncWebServer** (v3.6.0+) - Asynchronous web server for UI & Web OTA
+- **FastLED** (v3.9.0+) - WS2812B RGB LED strip control
 
 ## Changelog
 

@@ -32,6 +32,10 @@
 #define LED_PIN 2             // GPIO pin for the built-in LED (default is 2)
 #define LED_ACTIVE_LEVEL HIGH // Set to LOW if your onboard LED is active-low
 
+// WS2812 RGB LED strip configuration
+#define WS2812_DATA_PIN 4    // GPIO4: data line for WS2812 strip
+#define WS2812_NUM_LEDS 8    // Number of LEDs on the strip
+
 #endif // CONFIG_H
 
 

@@ -65,14 +65,9 @@ void loop() {
   // Send heartbeat message
   if (currentMillis - lastHeartbeatMillis >= HEART_BEAT_S * 1000UL) {
     lastHeartbeatMillis = currentMillis;
-    
-    // Local debug log
-    logPrint("[TRANS] Heartbeat from ");
-    logPrint(WHO_AM_I);
-    logPrint(" - Uptime: ");
-    logPrint(String(currentMillis / 1000));
-    logPrint("s, Peers: ");
-    logPrintln(String(getEspNowPeerCount()));
+
+    // Flash LED 1 orange (1 s) instead of logging – avoids flooding in-memory log
+    triggerStripFlash(1, 220, 100, 0, 1000);
 
     // Gateway JSON heartbeat
     JsonDocument hb;
