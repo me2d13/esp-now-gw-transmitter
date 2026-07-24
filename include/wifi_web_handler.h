@@ -20,6 +20,9 @@ void stopWifiWeb();
 // Cleanly disconnect Wi-Fi and initialize ESP-NOW
 void transitionToEspNow();
 
+// Stop ESP-NOW and re-enter Wi-Fi mode (no automatic timeout – stays until toggled again)
+void transitionToWifi();
+
 // Get the current state of the device
 DeviceState getCurrentState();
 

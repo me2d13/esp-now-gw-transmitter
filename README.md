@@ -50,6 +50,7 @@ MQTT Broker ←→ [esp-now-gw-mqtt] ←(serial)→ [esp-now-gw-transmitter] ←
   - Both USB and UART2 can be connected simultaneously.
   - All log messages are sent to both outputs.
 - **Optional**: WS2812B LED strip (8 LEDs recommended) connected to **GPIO4** for visual status indicators.
+- **Optional**: Momentary push-button / microswitch connected to **GPIO33** for manual mode toggling.
 
 ### Dual-Output Logging
 
@@ -239,7 +240,7 @@ Flashes **🟠 orange for 1 second** each time a heartbeat message is sent to th
 
 #### LEDs 2–7 — Reserved
 
-Currently off; available for future use (e.g. per-peer activity, mode-switch confirmation).
+Currently off; available for future use. LED 2 briefly flashes **white** as a confirmation when the mode-toggle button is pressed.
 
 #### Configuration
 
@@ -249,7 +250,49 @@ Currently off; available for future use (e.g. per-peer activity, mode-switch con
 #define WS2812_NUM_LEDS 8   // Number of LEDs on the strip
 ```
 
-## Error Handling
+## Mode-Toggle Button
+
+A momentary push-button (or microswitch) connected to **GPIO33** lets you switch between ESP-NOW and Wi-Fi mode without a reboot or serial command.
+
+### Wiring
+
+```
+ESP32 GPIO33  ────────┤ switch ├──── GND
+```
+
+No external resistor is needed — GPIO33 uses the ESP32's internal pull-up. The firmware reads the pin as **active-LOW** (pressed = GND).
+
+> [!CAUTION]
+> Do **not** use GPIO0 for this switch. GPIO0 is connected to ADC2, which WiFi locks exclusively. Reading GPIO0 while WiFi is active causes `ESP_ERR_TIMEOUT` errors that crash the device. GPIO0 is also a strapping pin — holding it LOW at boot enters download mode.
+
+### Press Actions
+
+| Press duration | Action |
+|---|---|
+| Short press (< 5 s) | **Toggle mode**: ESP-NOW → Wi-Fi or Wi-Fi → ESP-NOW |
+| Long press (≥ 5 s) | **Reboot** the ESP32 |
+
+### Mode Toggle Behaviour
+
+- When toggling **into Wi-Fi** mode, the Wi-Fi timeout timer is **disabled** (dry-run mode). The device stays in Wi-Fi indefinitely until the button is pressed again. This is intentional — you triggered it manually, so it should not auto-switch back.
+- When toggling **into ESP-NOW** mode, Wi-Fi and the web server are cleanly shut down before ESP-NOW is initialised.
+- In both directions the **custom MAC address** is re-applied from NVS before the new mode starts, so peers that have the MAC hardcoded continue to work.
+
+### LED Feedback (WS2812B strip)
+
+| LED | Event | Colour |
+|---|---|---|
+| LED 0 | Mode indicator (flashes every 3 s) | 🔵 Blue (Wi-Fi) / 🟢 Green (ESP-NOW) |
+| LED 2 | Button press acknowledged | ⚪ White flash, 500 ms |
+| LED 2+3 | Long press / reboot imminent | 🔴 Red flash, 200 ms |
+
+### Configuration
+
+```cpp
+// config.h
+#define BUTTON_PIN 33             // GPIO for the switch (connect other side to GND)
+#define BUTTON_LONG_PRESS_MS 5000 // Hold duration in ms to trigger a reboot
+```
 
 The transmitter includes comprehensive error handling:
 

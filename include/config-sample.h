@@ -26,6 +26,12 @@
 #define WIFI_PASSWORD "your-password"
 #define WIFI_TIME_MS (3 * 60 * 1000) // Default 3 minutes
 
+// Mode-toggle microswitch – connect switch between the pin and GND
+// GPIO33: ADC1 channel 5 (compatible with WiFi), has internal pull-up, not a strapping pin.
+// Do NOT use GPIO0: it is ADC2 (locked by WiFi) and a strapping pin – causes crashes.
+#define BUTTON_PIN 33             // GPIO33
+#define BUTTON_LONG_PRESS_MS 5000 // Hold >5 s to trigger a reboot
+
 #define SW_VERSION "0.2"
 
 // LED Configuration
@@ -37,5 +43,3 @@
 #define WS2812_NUM_LEDS 8    // Number of LEDs on the strip
 
 #endif // CONFIG_H
-
-

@@ -8,6 +8,7 @@
 #include "espnow_handler.h"
 #include "wifi_web_handler.h"
 #include "led_handler.h"
+#include "button_handler.h"
 
 // Software watchdog
 unsigned long lastLoopTime = 0;
@@ -36,6 +37,9 @@ void setup() {
   
   // Initialize Wi-Fi & Web Server Mode (switches to ESP-NOW after timeout/command)
   setupWifiWeb();
+
+  // Initialize mode-toggle button
+  setupButton();
   
   // Initialize watchdog
   lastLoopTime = millis();
@@ -58,6 +62,9 @@ void loop() {
 
   // Handle Wi-Fi mode state machine (OTA and timeout checks)
   handleWifiWeb();
+
+  // Poll mode-toggle button
+  handleButton();
   
   // Update non-blocking LED pattern generator
   updateLed();

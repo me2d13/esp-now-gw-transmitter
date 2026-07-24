@@ -464,8 +464,10 @@ void setupWifiWeb() {
   logPrintf("[TRANS] Connecting to Wi-Fi SSID: %s\n", WIFI_SSID);
   
   // Non-blocking connection wait (up to 15 seconds)
+  // Feed watchdog here: this function can be called from loop() via transitionToWifi()
   unsigned long startConnect = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - startConnect < 15000) {
+    feedWatchdog();
     delay(500);
     logPrint(".");
   }
@@ -666,6 +668,32 @@ void transitionToEspNow() {
   
   currentState = STATE_ESPNOW;
   logPrintln("[TRANS] Transited to ESP-NOW mode successfully.");
+}
+
+void transitionToWifi() {
+  if (currentState == STATE_WIFI) return;
+
+  logPrintln("[TRANS] Button triggered: switching back to Wi-Fi mode...");
+
+  // Tear down ESP-NOW
+  esp_now_deinit();
+  WiFi.mode(WIFI_OFF);
+  delay(100);
+
+  // Re-apply custom MAC address before bringing WiFi up.
+  // Without this the chip falls back to its burned-in MAC, breaking
+  // ESP-NOW peers that have the custom MAC hardcoded.
+  loadCustomMacAddress();
+  delay(100);
+
+  // Re-enter Wi-Fi – reuse existing setup logic
+  setupWifiWeb();
+
+  // Disable the automatic timeout so we stay in Wi-Fi until toggled again
+  setDryRunMode(true);
+
+  currentState = STATE_WIFI;  // must be set AFTER setupWifiWeb() to reflect actual state
+  logPrintln("[TRANS] Transited to Wi-Fi mode (no timeout – toggled manually).");
 }
 
 DeviceState getCurrentState() {
